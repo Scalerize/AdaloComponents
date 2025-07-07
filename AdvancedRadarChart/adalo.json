@@ -1,0 +1,12 @@
+{
+  "displayName": "Advanced Radar Chart",
+  "components": [
+    {
+      "name": "Advanced Radar Chart",
+      "manifest": "./src/components/AdvancedRadarChart/manifest.json"
+    }
+  ],
+  "author": "",
+  "description": "",
+  "logo": "./example-logo.png"
+}
