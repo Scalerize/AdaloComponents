@@ -1,12 +1,15 @@
 {
   "displayName": "Advanced Radar Chart",
+  "author": "Scalerize",
+  "description": "Radar Chart instantly turns any Adalo collection into a vibrant multi-axis (spider) chart. Drop it on the canvas, connect your list, and watch dashboards, skill matrices, surveys & KPIs come alive—beautifully responsive on web, iOS and Android.",
+  "price": 39,
+  "demoAppURL": "https://previewer.adalo.com/d51df6a9-57ae-41b7-ad5d-502e0035a7c2?target=9fwa0gf65b5g4apbqjw1gycrd&params=%7B%7D",
+  "supportURL": "https://www.scalerize.fr/solutions/composants-adalo",
+  "logo": "./logo.png",
   "components": [
     {
       "name": "AdvancedRadarChart",
       "manifest": "./src/components/AdvancedRadarChart/manifest.json"
     }
-  ],
-  "author": "",
-  "description": "",
-  "logo": "./example-logo.png"
+  ]
 }

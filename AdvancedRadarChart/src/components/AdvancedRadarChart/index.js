@@ -2,7 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import Svg, { G, Polygon, Line, Circle, Text as SvgText } from 'react-native-svg';
 
-const sampleData = ['A', 'B', 'C', 'D', 'E'].map((c) => ({ category: c, value: Math.round(Math.random()), series: 'Sample' }));
+const sampleData = ['A', 'B', 'C', 'D', 'E', 'F'].map((c) => ({ category: c, value: Math.round(Math.random()), series: 'Sample' }));
 /**
  * RadarChart component for Adalo
  * Implements list specification & child components
