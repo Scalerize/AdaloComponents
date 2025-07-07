@@ -2,7 +2,7 @@
   "displayName": "Advanced Radar Chart",
   "components": [
     {
-      "name": "Advanced Radar Chart",
+      "name": "AdvancedRadarChart",
       "manifest": "./src/components/AdvancedRadarChart/manifest.json"
     }
   ],

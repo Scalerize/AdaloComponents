@@ -57,7 +57,8 @@
       "displayName": "Label Color",
       "type": "color",
       "default": "#333333",
-      "enabled": { "showLabels": true }
+      "enabled": { "showLabels": true },
+      "style": true
     },
     {
       "name": "labelFontSize",
@@ -65,40 +66,46 @@
       "type": "number",
       "default": 12,
       "enabled": { "showLabels": true },
-      "control": { "type": "slider", "min": 6, "max": 24 }
+      "control": { "type": "slider", "min": 6, "max": 24 },
+      "style": true
     },
     {
       "name": "gridColor",
       "displayName": "Grid Line Color",
       "type": "color",
-      "default": "#C0C0C0"
+      "default": "#C0C0C0",
+      "style": true
     },
     {
       "name": "gridLineWidth",
       "displayName": "Grid Line Width",
       "type": "number",
       "default": 1,
-      "control": { "type": "slider", "min": 1, "max": 5 }
+      "control": { "type": "slider", "min": 1, "max": 5 },
+      "style": true
     },
     {
       "name": "strokeWidth",
       "displayName": "Series Line Width",
       "type": "number",
       "default": 2,
-      "control": { "type": "slider", "min": 1, "max": 10 }
+      "control": { "type": "slider", "min": 1, "max": 10 },
+      "style": true
     },
     {
       "name": "fillOpacity",
       "displayName": "Fill Opacity",
       "type": "number",
       "default": 0.2,
-      "control": { "type": "slider", "min": 0, "max": 1, "step": 0.1 }
+      "control": { "type": "slider", "min": 0, "max": 100, "step": 1 },
+      "style": true
     },
     {
-      "name": "colorPalette",
-      "displayName": "Color Palette (comma separated)",
-      "type": "text",
-      "default": "#3366CC,#DC3912,#FF9900,#109618,#990099"
+      "name": "color",
+      "displayName": "Color",
+      "type": "color",
+      "default": "#3366CC",
+      "style": true
     }
   ],
   "childComponents": [
@@ -117,11 +124,6 @@
           "name": "value",
           "displayName": "Value",
           "type": "number"
-        },
-        {
-          "name": "series",
-          "displayName": "Series Name",
-          "type": "text"
         }
       ]
     }

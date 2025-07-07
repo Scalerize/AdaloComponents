@@ -2,6 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import Svg, { G, Polygon, Line, Circle, Text as SvgText } from 'react-native-svg';
 
+const sampleData = ['A', 'B', 'C', 'D', 'E'].map((c) => ({ category: c, value: Math.round(Math.random()), series: 'Sample' }));
 /**
  * RadarChart component for Adalo
  * Implements list specification & child components
@@ -22,7 +23,7 @@ const RadarChart = (props) => {
     gridLineWidth = 1,
     strokeWidth = 2,
     fillOpacity = 0.2,
-    colorPalette = '#3366CC,#DC3912,#FF9900,#109618,#990099',
+    color = '#3366CC',
     _width = 300,
     _height = 300,
     editor
@@ -43,9 +44,8 @@ const RadarChart = (props) => {
   let processed = (data || []).map(extractPoint);
 
   if (editor || processed.length === 0) {
-    // Generate sample data in Adalo editor preview
-    const cats = ['A', 'B', 'C', 'D', 'E'];
-    processed = cats.map((c) => ({ category: c, value: Math.round(Math.random() * maxValue), series: 'Sample' }));
+    // Generate sample data in Adalo editor preview 
+    processed = sampleData.map(x => ({...x, value: x.value * maxValue}));
   }
 
   const categories = [...new Set(processed.map((d) => d.category))];
@@ -57,8 +57,6 @@ const RadarChart = (props) => {
   const cx = width / 2;
   const cy = height / 2;
   const radius = (Math.min(width, height) / 2) * 0.8;
-
-  const colors = colorPalette.split(',').map((c) => c.trim()).filter(Boolean);
 
   // Convert to per‑series point arrays
   const seriesData = seriesNames.map((name, sIdx) => {
@@ -72,7 +70,7 @@ const RadarChart = (props) => {
         y: cy + r * Math.sin(angle),
       };
     });
-    return { name, pts, color: colors[sIdx % colors.length] || '#000' };
+    return { name, pts, color };
   });
 
   // Grid polygons
@@ -118,7 +116,7 @@ const RadarChart = (props) => {
             const poly = serie.pts.map((p) => `${p.x},${p.y}`).join(' ');
             return (
               <G key={`series-${sIdx}`}>
-                <Polygon points={poly} fill={serie.color} opacity={fillOpacity} stroke={serie.color} strokeWidth={strokeWidth} />
+                <Polygon points={poly} fill={serie.color} opacity={fillOpacity/100} stroke={serie.color} strokeWidth={strokeWidth} />
                 {showDots &&
                   serie.pts.map((p, i) => <Circle key={`dot-${sIdx}-${i}`} cx={p.x} cy={p.y} r={dotRadius} fill={serie.color} />)}
               </G>
