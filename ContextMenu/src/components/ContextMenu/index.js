@@ -10,7 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 
-import Icon from '@react-native-vector-icons/material-icons';
+import Icon from './IconAdapter';
 
 const EDGE_MARGIN = 20;
 const SPACING_Y = 10;
