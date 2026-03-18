@@ -7,6 +7,6 @@
     }
   ],
   "author": "Scalerize",
-  "description": "Interactive Google Maps component with live tracking and multi-stop route building. Includes real-time geolocation, route paths, ETA, per-segment distances, and rich styling options.",
-  "logo": "./example-logo.png"
+  "description": "Interactive Maps component with live tracking and multi-stop route building. Includes real-time geolocation, route paths, ETA, per-segment distances, and rich styling options.",
+  "logo": "./logo.png"
 }

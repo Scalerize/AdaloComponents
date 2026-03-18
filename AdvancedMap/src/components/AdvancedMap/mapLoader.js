@@ -4,6 +4,8 @@
  * a promise-based interface for consumers.
  */
 
+import { Car, Bike, PersonStanding, Package, Truck } from 'lucide'
+
 const loadedScripts = {}
 
 /**
@@ -106,6 +108,71 @@ export function createPinIcon(maps, color) {
   }
 }
 
+/* ──────────────────────────────────────────────
+   Lucide-based marker icon helper.
+   Converts Lucide icon node arrays (from the `lucide`
+   vanilla package) into SVG strings inside a coloured
+   circle, suitable for Google Maps markers.
+   ────────────────────────────────────────────── */
+
+/** Map of icon type string → Lucide icon node array */
+const LUCIDE_ICON_MAP = {
+  car: Car,
+  bike: Bike,
+  truck: Truck,
+  person: PersonStanding,
+  package: Package,
+}
+
+/**
+ * Convert a Lucide icon node array into an SVG elements string.
+ * Each node is a tuple: [tagName, { attr1: val1, ... }]
+ *
+ * @param {Array<[string, Object]>} iconNode
+ * @returns {string} SVG inner elements (no wrapping <svg>)
+ */
+function iconNodeToSvg(iconNode) {
+  return iconNode
+    .map(([tag, attrs]) => {
+      const attrStr = Object.entries(attrs)
+        .map(([k, v]) => `${k}="${v}"`)
+        .join(' ')
+      // All Lucide elements are self-closing (path, circle, polyline, line, rect)
+      return `<${tag} ${attrStr}/>`
+    })
+    .join('')
+}
+
+/**
+ * Build a Google Maps marker icon from a Lucide icon node array,
+ * rendered inside a coloured circle.
+ *
+ * @param {typeof google.maps} maps
+ * @param {string} color - Background circle colour
+ * @param {Array<[string, Object]>} iconNode - Lucide icon node array
+ * @returns {google.maps.Icon}
+ */
+export function createLucideMarkerIcon(maps, color, iconNode) {
+  const innerElements = iconNodeToSvg(iconNode)
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="19" fill="${color}" stroke="#fff" stroke-width="1.5"/>
+      <svg x="9" y="9" width="22" height="22" viewBox="0 0 24 24"
+           fill="none" stroke="#fff" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        ${innerElements}
+      </svg>
+    </svg>
+  `
+
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: new maps.Size(40, 40),
+    anchor: new maps.Point(20, 20),
+  }
+}
+
 /**
  * Create a numbered pin SVG marker for waypoints.
  *
@@ -146,6 +213,34 @@ export function createPulsingDotIcon(maps, color) {
     url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
     scaledSize: new maps.Size(40, 40),
     anchor: new maps.Point(20, 20),
+  }
+}
+
+/**
+ * Dispatcher: returns the appropriate icon based on `iconType`.
+ *
+ * Supported types: 'pulsingDot', 'pin', 'car', 'bike', 'truck', 'person', 'package'.
+ * Falls back to `pin` for unknown types.
+ *
+ * @param {typeof google.maps} maps
+ * @param {string} color
+ * @param {string} iconType
+ * @returns {google.maps.Icon|google.maps.Symbol}
+ */
+export function createMarkerByType(maps, color, iconType) {
+  // Check if it's a Lucide-based icon
+  const LucideIcon = LUCIDE_ICON_MAP[iconType]
+  if (LucideIcon) {
+    return createLucideMarkerIcon(maps, color, LucideIcon)
+  }
+
+  // Built-in icon types
+  switch (iconType) {
+    case 'pulsingDot':
+      return createPulsingDotIcon(maps, color)
+    case 'pin':
+    default:
+      return createPinIcon(maps, color)
   }
 }
 

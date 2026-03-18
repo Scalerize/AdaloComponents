@@ -16,5 +16,8 @@
     "react-art": "^16.13.1",
     "react-dom": "^16.14.0",
     "react-native-web": "^0.9.13"
+  },
+  "dependencies": {
+    "lucide": "^0.577.0"
   }
 }

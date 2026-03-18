@@ -1,10 +1,11 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react'
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import {
   loadGoogleMaps,
   createPinIcon,
   createPulsingDotIcon,
   createNumberedPinIcon,
+  createMarkerByType,
   formatDistance,
   formatDuration,
 } from './mapLoader'
@@ -74,10 +75,12 @@ const AdvancedMap = (props) => {
     // Tracking
     userLatitude = 0,
     userLongitude = 0,
-    destinationLatitude = 0,
-    destinationLongitude = 0,
+    userMarkerIcon = 'pulsingDot',
+    targetLatitude = 0,
+    targetLongitude = 0,
+    targetMarkerIcon = 'pin',
     userLabel = 'You',
-    destinationLabel = 'Destination',
+    targetLabel = 'Target',
     autoFitBounds = true,
     animateUserMarker = true,
     // Route builder
@@ -104,7 +107,7 @@ const AdvancedMap = (props) => {
     routeColor = '#4285F4',
     routeWeight = 5,
     userMarkerColor = '#4285F4',
-    destinationMarkerColor = '#EA4335',
+    targetMarkerColor = '#EA4335',
     waypointMarkerColor = '#FBBC05',
     infoPanelBg = '#FFFFFF',
     infoPanelTextColor = '#333333',
@@ -122,12 +125,48 @@ const AdvancedMap = (props) => {
   const segmentOverlaysRef = useRef([])
   const animIntervalRef = useRef(null)
   const routePolylineRef = useRef(null)
+  // ─── Route-result caches ────────────
+  const trackingResultRef = useRef(null)
+  const lastTrackingKeyRef = useRef(null)
+  const routeBuilderResultRef = useRef(null)
+  const lastRouteBuilderKeyRef = useRef(null)
 
   // ─── State ───────────────────────────
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
   const [routeInfo, setRouteInfo] = useState(null)
   const [segmentInfos, setSegmentInfos] = useState([])
+
+  /* ────────────────────────────────────────
+     MEMOISED ROUTE KEYS
+     Only route-affecting params are included so that
+     visual-only changes (colors, labels …) never
+     trigger a new Directions API call.
+     ──────────────────────────────────────── */
+  const trackingRouteKey = useMemo(() => {
+    if (mapMode !== 'tracking') return null
+    if (
+      !isValidCoord(userLatitude, userLongitude) ||
+      !isValidCoord(targetLatitude, targetLongitude)
+    )
+      return null
+    if (!showRoute) return null
+    return `${userLatitude},${userLongitude}|${targetLatitude},${targetLongitude}|${travelMode}`
+  }, [mapMode, userLatitude, userLongitude, targetLatitude, targetLongitude, travelMode, showRoute])
+
+  const memoizedWaypoints = useMemo(
+    () => extractWaypoints(waypoints),
+    [waypoints]
+  )
+
+  const routeBuilderRouteKey = useMemo(() => {
+    if (mapMode !== 'routeBuilder') return null
+    if (memoizedWaypoints.length < 2 || !showRoute) return null
+    const coordsKey = memoizedWaypoints
+      .map((p) => `${p.lat},${p.lng}`)
+      .join('|')
+    return `${coordsKey}|${travelMode}|${optimizeWaypointOrder}`
+  }, [mapMode, memoizedWaypoints, travelMode, optimizeWaypointOrder, showRoute])
 
   /* ────────────────────────────────────────
      LOAD GOOGLE MAPS
@@ -193,7 +232,11 @@ const AdvancedMap = (props) => {
   }, [zoomLevel])
 
   /* ────────────────────────────────────────
-     TRACKING MODE
+     TRACKING MODE — markers & route
+     Uses trackingRouteKey (useMemo) so the
+     Directions API is only called when route-
+     affecting params change. Visual-only changes
+     (colors, labels …) reuse the cached result.
      ──────────────────────────────────────── */
   useEffect(() => {
     if (!loaded || mapMode !== 'tracking') return
@@ -207,7 +250,7 @@ const AdvancedMap = (props) => {
     clearRoutePolyline()
 
     const hasUser = isValidCoord(userLatitude, userLongitude)
-    const hasDest = isValidCoord(destinationLatitude, destinationLongitude)
+    const hasTarget = isValidCoord(targetLatitude, targetLongitude)
 
     // ── User marker ────────────────────
     if (hasUser) {
@@ -217,7 +260,7 @@ const AdvancedMap = (props) => {
         userMarkerRef.current = new maps.Marker({
           map,
           position: pos,
-          icon: createPulsingDotIcon(maps, userMarkerColor),
+          icon: createMarkerByType(maps, userMarkerColor, userMarkerIcon),
           title: userLabel,
           zIndex: 10,
         })
@@ -236,53 +279,63 @@ const AdvancedMap = (props) => {
           userMarkerRef.current.setPosition(pos)
         }
         userMarkerRef.current.setIcon(
-          createPulsingDotIcon(maps, userMarkerColor)
+          createMarkerByType(maps, userMarkerColor, userMarkerIcon)
         )
         userMarkerRef.current.setTitle(userLabel)
       }
     }
 
-    // ── Destination marker ─────────────
-    if (hasDest) {
-      const pos = new maps.LatLng(destinationLatitude, destinationLongitude)
+    // ── Target marker ─────────────────
+    if (hasTarget) {
+      const pos = new maps.LatLng(targetLatitude, targetLongitude)
 
       if (!destMarkerRef.current) {
         destMarkerRef.current = new maps.Marker({
           map,
           position: pos,
-          icon: createPinIcon(maps, destinationMarkerColor),
-          title: destinationLabel,
+          icon: createMarkerByType(maps, targetMarkerColor, targetMarkerIcon),
+          title: targetLabel,
           zIndex: 5,
         })
       } else {
         destMarkerRef.current.setPosition(pos)
         destMarkerRef.current.setIcon(
-          createPinIcon(maps, destinationMarkerColor)
+          createMarkerByType(maps, targetMarkerColor, targetMarkerIcon)
         )
-        destMarkerRef.current.setTitle(destinationLabel)
+        destMarkerRef.current.setTitle(targetLabel)
       }
     }
 
-    // ── Route between user → destination ──
-    if (hasUser && hasDest && showRoute) {
-      calcTrackingRoute(maps, map)
+    // ── Route between user → target ──────
+    if (hasUser && hasTarget && showRoute) {
+      const needsRecalc = trackingRouteKey !== lastTrackingKeyRef.current
+      if (needsRecalc) {
+        // Route params changed → call the Directions API
+        calcTrackingRoute(maps, map)
+        lastTrackingKeyRef.current = trackingRouteKey
+      } else if (trackingResultRef.current) {
+        // Only visual props changed → reuse cached DirectionsResult
+        applyTrackingRouteVisuals(maps, map, trackingResultRef.current)
+      }
     } else {
       // Clear previous renderer
       clearDirectionsRenderer()
       setRouteInfo(null)
+      lastTrackingKeyRef.current = null
+      trackingResultRef.current = null
       // Fit bounds to available markers
-      if (hasUser && hasDest && autoFitBounds) {
+      if (hasUser && hasTarget && autoFitBounds) {
         const bounds = new maps.LatLngBounds()
         bounds.extend(new maps.LatLng(userLatitude, userLongitude))
         bounds.extend(
-          new maps.LatLng(destinationLatitude, destinationLongitude)
+          new maps.LatLng(targetLatitude, targetLongitude)
         )
         map.fitBounds(bounds, { top: 60, bottom: 60, left: 40, right: 40 })
       } else if (hasUser) {
         map.panTo(new maps.LatLng(userLatitude, userLongitude))
-      } else if (hasDest) {
+      } else if (hasTarget) {
         map.panTo(
-          new maps.LatLng(destinationLatitude, destinationLongitude)
+          new maps.LatLng(targetLatitude, targetLongitude)
         )
       }
     }
@@ -291,24 +344,30 @@ const AdvancedMap = (props) => {
   }, [
     loaded,
     mapMode,
+    trackingRouteKey,
     userLatitude,
     userLongitude,
-    destinationLatitude,
-    destinationLongitude,
+    userMarkerIcon,
+    targetLatitude,
+    targetLongitude,
+    targetMarkerIcon,
     showRoute,
     userMarkerColor,
-    destinationMarkerColor,
+    targetMarkerColor,
     routeColor,
     routeWeight,
-    travelMode,
     userLabel,
-    destinationLabel,
+    targetLabel,
     autoFitBounds,
     animateUserMarker,
   ])
 
   /* ────────────────────────────────────────
      ROUTE BUILDER MODE
+     Uses routeBuilderRouteKey (useMemo) so the
+     Directions API is only called when route-
+     affecting params change. Visual-only changes
+     reuse the cached DirectionsResult.
      ──────────────────────────────────────── */
   useEffect(() => {
     if (!loaded || mapMode !== 'routeBuilder') return
@@ -321,8 +380,7 @@ const AdvancedMap = (props) => {
     removeMarker(userMarkerRef)
     removeMarker(destMarkerRef)
 
-    // Process waypoints from list data
-    const points = extractWaypoints(waypoints)
+    const points = memoizedWaypoints
 
     if (points.length === 0) {
       clearWaypointMarkers()
@@ -330,6 +388,8 @@ const AdvancedMap = (props) => {
       clearRoutePolyline()
       setRouteInfo(null)
       setSegmentInfos([])
+      lastRouteBuilderKeyRef.current = null
+      routeBuilderResultRef.current = null
       return
     }
 
@@ -344,7 +404,7 @@ const AdvancedMap = (props) => {
       if (isFirst) {
         icon = createPinIcon(maps, userMarkerColor)
       } else if (isLast) {
-        icon = createPinIcon(maps, destinationMarkerColor)
+        icon = createPinIcon(maps, targetMarkerColor)
       } else {
         icon = createNumberedPinIcon(maps, waypointMarkerColor, idx)
       }
@@ -372,7 +432,20 @@ const AdvancedMap = (props) => {
 
     // ── Calculate multi-leg route ──────
     if (points.length >= 2 && showRoute) {
-      calcRouteBuilderRoute(maps, map, points)
+      const needsRecalc = routeBuilderRouteKey !== lastRouteBuilderKeyRef.current
+      if (needsRecalc) {
+        // Route params changed → call the Directions API
+        calcRouteBuilderRoute(maps, map, points)
+        lastRouteBuilderKeyRef.current = routeBuilderRouteKey
+      } else if (routeBuilderResultRef.current) {
+        // Only visual props changed → reuse cached DirectionsResult
+        applyRouteBuilderRouteVisuals(
+          maps,
+          map,
+          routeBuilderResultRef.current,
+          points
+        )
+      }
     } else {
       clearRoutePolyline()
       clearSegmentOverlays()
@@ -389,20 +462,23 @@ const AdvancedMap = (props) => {
   }, [
     loaded,
     mapMode,
-    waypoints,
+    memoizedWaypoints,
+    routeBuilderRouteKey,
     showRoute,
     showSegmentDistances,
-    optimizeWaypointOrder,
-    travelMode,
     routeColor,
     routeWeight,
     userMarkerColor,
-    destinationMarkerColor,
+    targetMarkerColor,
     waypointMarkerColor,
+    infoPanelBg,
+    infoPanelTextColor,
   ])
 
   /* ────────────────────────────────────────
      ROUTE CALCULATION: Tracking Mode
+     Calls the Directions API and caches the
+     result in trackingResultRef for reuse.
      ──────────────────────────────────────── */
   const calcTrackingRoute = useCallback(
     (maps, map) => {
@@ -411,93 +487,108 @@ const AdvancedMap = (props) => {
       const request = {
         origin: new maps.LatLng(userLatitude, userLongitude),
         destination: new maps.LatLng(
-          destinationLatitude,
-          destinationLongitude
+          targetLatitude,
+          targetLongitude
         ),
         travelMode: maps.TravelMode[travelMode] || maps.TravelMode.DRIVING,
       }
 
       directionsService.route(request, (result, status) => {
         if (status === 'OK') {
-          // Use DirectionsRenderer for a polished display
-          if (!directionsRendererRef.current) {
-            directionsRendererRef.current = new maps.DirectionsRenderer({
-              map,
-              suppressMarkers: true, // we draw our own markers
-              polylineOptions: {
-                strokeColor: routeColor,
-                strokeWeight: routeWeight,
-                strokeOpacity: 0.85,
-              },
-            })
-          } else {
-            directionsRendererRef.current.setOptions({
-              polylineOptions: {
-                strokeColor: routeColor,
-                strokeWeight: routeWeight,
-                strokeOpacity: 0.85,
-              },
-            })
-          }
+          // Cache the raw DirectionsResult for later reuse
+          trackingResultRef.current = result
 
-          directionsRendererRef.current.setDirections(result)
-
-          // Extract distance/duration
-          const leg = result.routes[0].legs[0]
-          const distM = leg.distance.value // metres
-          const durS = leg.duration.value // seconds
-          const distKm = parseFloat((distM / 1000).toFixed(2))
-          const durMin = parseFloat((durS / 60).toFixed(1))
-
-          setRouteInfo({
-            distance: leg.distance.text,
-            duration: leg.duration.text,
-            distanceMetres: distM,
-            durationSeconds: durS,
-          })
-
-          // Autosave outputs
-          if (totalDistance && totalDistance.onChange) {
-            totalDistance.onChange(distKm)
-          }
-          if (totalDuration && totalDuration.onChange) {
-            totalDuration.onChange(durMin)
-          }
-
-          // Fire action
-          if (onRouteCalculated) {
-            onRouteCalculated(distKm, durMin)
-          }
-
-          // Fit bounds
-          if (autoFitBounds) {
-            const bounds = new maps.LatLngBounds()
-            bounds.extend(new maps.LatLng(userLatitude, userLongitude))
-            bounds.extend(
-              new maps.LatLng(destinationLatitude, destinationLongitude)
-            )
-            map.fitBounds(bounds, {
-              top: 60,
-              bottom: 80,
-              left: 40,
-              right: 40,
-            })
-          }
+          // Apply the visual rendering with current styling props
+          applyTrackingRouteVisuals(maps, map, result)
         } else {
           console.warn('[AdvancedMap] Directions failed:', status)
+          trackingResultRef.current = null
           clearDirectionsRenderer()
         }
       })
     },
+    [userLatitude, userLongitude, targetLatitude, targetLongitude, travelMode]
+  )
+
+  /* ────────────────────────────────────────
+     APPLY TRACKING ROUTE VISUALS
+     Renders a cached DirectionsResult with the
+     current styling props — no API call needed.
+     ──────────────────────────────────────── */
+  const applyTrackingRouteVisuals = useCallback(
+    (maps, map, result) => {
+      if (!directionsRendererRef.current) {
+        directionsRendererRef.current = new maps.DirectionsRenderer({
+          map,
+          suppressMarkers: true,
+          polylineOptions: {
+            strokeColor: routeColor,
+            strokeWeight: routeWeight,
+            strokeOpacity: 0.85,
+          },
+        })
+      } else {
+        directionsRendererRef.current.setOptions({
+          polylineOptions: {
+            strokeColor: routeColor,
+            strokeWeight: routeWeight,
+            strokeOpacity: 0.85,
+          },
+        })
+      }
+
+      directionsRendererRef.current.setDirections(result)
+
+      // Extract distance/duration
+      const leg = result.routes[0].legs[0]
+      const distM = leg.distance.value
+      const durS = leg.duration.value
+      const distKm = parseFloat((distM / 1000).toFixed(2))
+      const durMin = parseFloat((durS / 60).toFixed(1))
+
+      setRouteInfo({
+        distance: leg.distance.text,
+        duration: leg.duration.text,
+        distanceMetres: distM,
+        durationSeconds: durS,
+      })
+
+      // Autosave outputs
+      if (totalDistance && totalDistance.onChange) {
+        totalDistance.onChange(distKm)
+      }
+      if (totalDuration && totalDuration.onChange) {
+        totalDuration.onChange(durMin)
+      }
+
+      // Fire action
+      if (onRouteCalculated) {
+        onRouteCalculated(distKm, durMin)
+      }
+
+      // Fit bounds
+      if (autoFitBounds) {
+        const bounds = new maps.LatLngBounds()
+        bounds.extend(new maps.LatLng(userLatitude, userLongitude))
+        bounds.extend(
+          new maps.LatLng(targetLatitude, targetLongitude)
+        )
+        map.fitBounds(bounds, {
+          top: 60,
+          bottom: 80,
+          left: 40,
+          right: 40,
+        })
+      }
+    },
     [
-      userLatitude,
-      userLongitude,
-      destinationLatitude,
-      destinationLongitude,
-      travelMode,
       routeColor,
       routeWeight,
       autoFitBounds,
+      userLatitude,
+      userLongitude,
+      targetLatitude,
+      targetLongitude,
       totalDistance,
       totalDuration,
       onRouteCalculated,
@@ -506,6 +597,8 @@ const AdvancedMap = (props) => {
 
   /* ────────────────────────────────────────
      ROUTE CALCULATION: Route Builder Mode
+     Calls the Directions API and caches the
+     result in routeBuilderResultRef for reuse.
      ──────────────────────────────────────── */
   const calcRouteBuilderRoute = useCallback(
     (maps, map, points) => {
@@ -521,7 +614,6 @@ const AdvancedMap = (props) => {
         points[points.length - 1].lng
       )
 
-      // Intermediate waypoints
       const gmapsWaypoints = points.slice(1, -1).map((pt) => ({
         location: new maps.LatLng(pt.lat, pt.lng),
         stopover: true,
@@ -538,100 +630,116 @@ const AdvancedMap = (props) => {
       directionsService.route(request, (result, status) => {
         if (status !== 'OK') {
           console.warn('[AdvancedMap] Directions failed:', status)
-          // Draw straight-line fallback
+          routeBuilderResultRef.current = null
           drawStraightLineFallback(maps, map, points)
           return
         }
 
-        const route = result.routes[0]
-        const legs = route.legs
+        // Cache the raw DirectionsResult
+        routeBuilderResultRef.current = result
 
-        // Draw the whole route polyline
-        const path = route.overview_path
-        const polyline = new maps.Polyline({
-          map,
-          path,
-          strokeColor: routeColor,
-          strokeWeight: routeWeight,
-          strokeOpacity: 0.85,
-        })
-        routePolylineRef.current = polyline
-
-        // Gather per-leg info
-        let totalDistM = 0
-        let totalDurS = 0
-        const segments = []
-
-        legs.forEach((leg, idx) => {
-          totalDistM += leg.distance.value
-          totalDurS += leg.duration.value
-
-          segments.push({
-            from: points[idx].label || `Point ${idx + 1}`,
-            to: points[idx + 1].label || `Point ${idx + 2}`,
-            distance: leg.distance.text,
-            distanceValue: leg.distance.value,
-            duration: leg.duration.text,
-            durationValue: leg.duration.value,
-          })
-
-          // Place distance overlays on the map
-          if (showSegmentDistances) {
-            const midIdx = Math.floor(leg.steps.length / 2)
-            const midStep = leg.steps[midIdx]
-            const midPoint =
-              midStep
-                ? midStep.start_location
-                : leg.start_location
-
-            const overlay = createDistanceOverlay(
-              maps,
-              map,
-              midPoint,
-              leg.distance.text,
-              infoPanelBg,
-              infoPanelTextColor
-            )
-            segmentOverlaysRef.current.push(overlay)
-          }
-        })
-
-        setSegmentInfos(segments)
-
-        const distKm = parseFloat((totalDistM / 1000).toFixed(2))
-        const durMin = parseFloat((totalDurS / 60).toFixed(1))
-
-        setRouteInfo({
-          distance: formatDistance(totalDistM),
-          duration: formatDuration(totalDurS),
-          distanceMetres: totalDistM,
-          durationSeconds: totalDurS,
-        })
-
-        // Autosave
-        if (totalDistance && totalDistance.onChange) {
-          totalDistance.onChange(distKm)
-        }
-        if (totalDuration && totalDuration.onChange) {
-          totalDuration.onChange(durMin)
-        }
-
-        // Action
-        if (onRouteCalculated) {
-          onRouteCalculated(distKm, durMin)
-        }
-
-        // Fit bounds
-        const bounds = new maps.LatLngBounds()
-        points.forEach((pt) =>
-          bounds.extend(new maps.LatLng(pt.lat, pt.lng))
-        )
-        map.fitBounds(bounds, { top: 60, bottom: 80, left: 40, right: 40 })
+        // Apply the visual rendering with current styling props
+        applyRouteBuilderRouteVisuals(maps, map, result, points)
       })
     },
+    [optimizeWaypointOrder, travelMode]
+  )
+
+  /* ────────────────────────────────────────
+     APPLY ROUTE BUILDER VISUALS
+     Renders a cached DirectionsResult with the
+     current styling props — no API call needed.
+     ──────────────────────────────────────── */
+  const applyRouteBuilderRouteVisuals = useCallback(
+    (maps, map, result, points) => {
+      clearRoutePolyline()
+      clearSegmentOverlays()
+
+      const route = result.routes[0]
+      const legs = route.legs
+
+      // Draw the whole route polyline
+      const path = route.overview_path
+      const polyline = new maps.Polyline({
+        map,
+        path,
+        strokeColor: routeColor,
+        strokeWeight: routeWeight,
+        strokeOpacity: 0.85,
+      })
+      routePolylineRef.current = polyline
+
+      // Gather per-leg info
+      let totalDistM = 0
+      let totalDurS = 0
+      const segments = []
+
+      legs.forEach((leg, idx) => {
+        totalDistM += leg.distance.value
+        totalDurS += leg.duration.value
+
+        segments.push({
+          from: points[idx].label || `Point ${idx + 1}`,
+          to: points[idx + 1].label || `Point ${idx + 2}`,
+          distance: leg.distance.text,
+          distanceValue: leg.distance.value,
+          duration: leg.duration.text,
+          durationValue: leg.duration.value,
+        })
+
+        // Place distance overlays on the map
+        if (showSegmentDistances) {
+          const midIdx = Math.floor(leg.steps.length / 2)
+          const midStep = leg.steps[midIdx]
+          const midPoint = midStep
+            ? midStep.start_location
+            : leg.start_location
+
+          const overlay = createDistanceOverlay(
+            maps,
+            map,
+            midPoint,
+            leg.distance.text,
+            infoPanelBg,
+            infoPanelTextColor
+          )
+          segmentOverlaysRef.current.push(overlay)
+        }
+      })
+
+      setSegmentInfos(segments)
+
+      const distKm = parseFloat((totalDistM / 1000).toFixed(2))
+      const durMin = parseFloat((totalDurS / 60).toFixed(1))
+
+      setRouteInfo({
+        distance: formatDistance(totalDistM),
+        duration: formatDuration(totalDurS),
+        distanceMetres: totalDistM,
+        durationSeconds: totalDurS,
+      })
+
+      // Autosave
+      if (totalDistance && totalDistance.onChange) {
+        totalDistance.onChange(distKm)
+      }
+      if (totalDuration && totalDuration.onChange) {
+        totalDuration.onChange(durMin)
+      }
+
+      // Action
+      if (onRouteCalculated) {
+        onRouteCalculated(distKm, durMin)
+      }
+
+      // Fit bounds
+      const bounds = new maps.LatLngBounds()
+      points.forEach((pt) =>
+        bounds.extend(new maps.LatLng(pt.lat, pt.lng))
+      )
+      map.fitBounds(bounds, { top: 60, bottom: 80, left: 40, right: 40 })
+    },
     [
-      optimizeWaypointOrder,
-      travelMode,
       routeColor,
       routeWeight,
       showSegmentDistances,
@@ -933,7 +1041,7 @@ const AdvancedMap = (props) => {
           </View>
           <View style={styles.infoPanelRouteBar}>
             <Text style={[styles.infoPanelRouteText, { color: infoPanelTextColor }]}>
-              {userLabel} → {destinationLabel}
+              {userLabel} → {targetLabel}
             </Text>
           </View>
         </View>

@@ -5,7 +5,7 @@
   "resizeX": true,
   "resizeY": true,
   "components": "./index.js",
-  "icon": "./example-thumbnail.png",
+  "icon": "./thumbnail.png",
   "props": [
     {
       "name": "googleMapsApiKey",
@@ -120,18 +120,60 @@
       "helpText": "Bind to the current user's live longitude"
     },
     {
-      "name": "destinationLatitude",
-      "displayName": "Destination Latitude",
-      "type": "number",
-      "default": 0,
-      "enabled": { "mapMode": "tracking" }
+      "name": "userMarkerIcon",
+      "displayName": "User Marker Icon",
+      "type": "text",
+      "default": "pulsingDot",
+      "enabled": { "mapMode": "tracking" },
+      "helpText": "Choose the icon shape for the user marker",
+      "control": {
+        "type": "menu",
+        "options": [
+          { "label": "Pulsing Dot", "value": "pulsingDot" },
+          { "label": "Pin", "value": "pin" },
+          { "label": "Car", "value": "car" },
+          { "label": "Bike", "value": "bike" },
+          { "label": "Truck", "value": "truck" },
+          { "label": "Person", "value": "person" },
+          { "label": "Package", "value": "package" }
+        ]
+      }
     },
     {
-      "name": "destinationLongitude",
-      "displayName": "Destination Longitude",
+      "name": "targetLatitude",
+      "displayName": "Target Latitude",
       "type": "number",
       "default": 0,
-      "enabled": { "mapMode": "tracking" }
+      "enabled": { "mapMode": "tracking" },
+      "helpText": "Latitude of the target (e.g. destination, driver, delivery agent)"
+    },
+    {
+      "name": "targetLongitude",
+      "displayName": "Target Longitude",
+      "type": "number",
+      "default": 0,
+      "enabled": { "mapMode": "tracking" },
+      "helpText": "Longitude of the target (e.g. destination, driver, delivery agent)"
+    },
+    {
+      "name": "targetMarkerIcon",
+      "displayName": "Target Marker Icon",
+      "type": "text",
+      "default": "pin",
+      "enabled": { "mapMode": "tracking" },
+      "helpText": "Choose the icon shape for the target marker (e.g. car for a driver, bike for a courier)",
+      "control": {
+        "type": "menu",
+        "options": [
+          { "label": "Pin", "value": "pin" },
+          { "label": "Pulsing Dot", "value": "pulsingDot" },
+          { "label": "Car", "value": "car" },
+          { "label": "Bike", "value": "bike" },
+          { "label": "Truck", "value": "truck" },
+          { "label": "Person", "value": "person" },
+          { "label": "Package", "value": "package" }
+        ]
+      }
     },
     {
       "name": "userLabel",
@@ -141,11 +183,12 @@
       "enabled": { "mapMode": "tracking" }
     },
     {
-      "name": "destinationLabel",
-      "displayName": "Destination Marker Label",
+      "name": "targetLabel",
+      "displayName": "Target Marker Label",
       "type": "text",
-      "default": "Destination",
-      "enabled": { "mapMode": "tracking" }
+      "default": "Target",
+      "enabled": { "mapMode": "tracking" },
+      "helpText": "Label shown on hover for the target marker"
     },
     {
       "name": "autoFitBounds",
@@ -244,6 +287,7 @@
       "displayName": "Waypoint",
       "role": "listItem",
       "reference": "waypoints",
+      "enabled": { "mapMode": "routeBuilder" },
       "props": [
         {
           "name": "latitude",
@@ -290,8 +334,8 @@
           "style": true
         },
         {
-          "name": "destinationMarkerColor",
-          "displayName": "Destination Marker Color",
+          "name": "targetMarkerColor",
+          "displayName": "Target Marker Color",
           "type": "color",
           "default": "#EA4335",
           "style": true
