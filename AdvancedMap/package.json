@@ -1,10 +1,10 @@
 {
   "name": "advanced-map",
-  "description": "",
+  "description": "Advanced Google Maps component with live tracking (Uber-like) and multi-stop route builder modes. Supports real-time position tracking, route paths, ETA, segment distances, waypoints, and customisable styling.",
   "version": "1.0.0",
   "main": "index.js",
   "license": "ISC",
-  "author": "",
+  "author": "Scalerize",
   "scripts": {
     "start": "adalo dev",
     "login": "adalo login",

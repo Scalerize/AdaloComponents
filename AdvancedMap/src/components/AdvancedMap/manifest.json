@@ -1,21 +1,331 @@
 {
   "displayName": "Advanced Map",
-  "defaultWidth": 160,
-  "defaultHeight": 24,
+  "defaultWidth": 400,
+  "defaultHeight": 350,
+  "resizeX": true,
+  "resizeY": true,
   "components": "./index.js",
   "icon": "./example-thumbnail.png",
   "props": [
     {
-      "name": "text",
-      "displayName": "Text",
+      "name": "googleMapsApiKey",
+      "displayName": "Google Maps API Key",
       "type": "text",
-      "default": "Happy Hacking"
+      "default": "",
+      "helpText": "Required. Get your key at https://console.cloud.google.com (enable Maps JS, Directions, and Distance Matrix APIs)"
     },
     {
-      "name": "color",
-      "displayName": "Color",
-      "type": "color",
-      "default": "#00A898"
+      "name": "mapMode",
+      "displayName": "Map Mode",
+      "type": "text",
+      "default": "tracking",
+      "control": {
+        "type": "menu",
+        "options": [
+          { "label": "Live Tracking", "value": "tracking" },
+          { "label": "Route Builder", "value": "routeBuilder" }
+        ]
+      }
+    },
+    {
+      "name": "initialLatitude",
+      "displayName": "Initial Center Latitude",
+      "type": "number",
+      "default": 48.8566
+    },
+    {
+      "name": "initialLongitude",
+      "displayName": "Initial Center Longitude",
+      "type": "number",
+      "default": 2.3522
+    },
+    {
+      "name": "zoomLevel",
+      "displayName": "Zoom Level",
+      "type": "number",
+      "default": 13,
+      "control": { "type": "slider", "min": 1, "max": 20 }
+    },
+    {
+      "name": "mapTypeId",
+      "displayName": "Map Type",
+      "type": "text",
+      "default": "roadmap",
+      "control": {
+        "type": "menu",
+        "options": [
+          { "label": "Roadmap", "value": "roadmap" },
+          { "label": "Satellite", "value": "satellite" },
+          { "label": "Hybrid", "value": "hybrid" },
+          { "label": "Terrain", "value": "terrain" }
+        ]
+      }
+    },
+    {
+      "name": "travelMode",
+      "displayName": "Travel Mode",
+      "type": "text",
+      "default": "DRIVING",
+      "control": {
+        "type": "menu",
+        "options": [
+          { "label": "Driving", "value": "DRIVING" },
+          { "label": "Walking", "value": "WALKING" },
+          { "label": "Bicycling", "value": "BICYCLING" },
+          { "label": "Transit", "value": "TRANSIT" }
+        ]
+      }
+    },
+    {
+      "name": "showRoute",
+      "displayName": "Show Route Path",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "showInfoPanel",
+      "displayName": "Show Info Panel",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "infoPanelPosition",
+      "displayName": "Info Panel Position",
+      "type": "text",
+      "default": "bottom",
+      "enabled": { "showInfoPanel": true },
+      "control": {
+        "type": "menu",
+        "options": [
+          { "label": "Top", "value": "top" },
+          { "label": "Bottom", "value": "bottom" }
+        ]
+      }
+    },
+
+    {
+      "name": "userLatitude",
+      "displayName": "User Latitude",
+      "type": "number",
+      "default": 0,
+      "enabled": { "mapMode": "tracking" },
+      "helpText": "Bind to the current user's live latitude"
+    },
+    {
+      "name": "userLongitude",
+      "displayName": "User Longitude",
+      "type": "number",
+      "default": 0,
+      "enabled": { "mapMode": "tracking" },
+      "helpText": "Bind to the current user's live longitude"
+    },
+    {
+      "name": "destinationLatitude",
+      "displayName": "Destination Latitude",
+      "type": "number",
+      "default": 0,
+      "enabled": { "mapMode": "tracking" }
+    },
+    {
+      "name": "destinationLongitude",
+      "displayName": "Destination Longitude",
+      "type": "number",
+      "default": 0,
+      "enabled": { "mapMode": "tracking" }
+    },
+    {
+      "name": "userLabel",
+      "displayName": "User Marker Label",
+      "type": "text",
+      "default": "You",
+      "enabled": { "mapMode": "tracking" }
+    },
+    {
+      "name": "destinationLabel",
+      "displayName": "Destination Marker Label",
+      "type": "text",
+      "default": "Destination",
+      "enabled": { "mapMode": "tracking" }
+    },
+    {
+      "name": "autoFitBounds",
+      "displayName": "Auto-Fit Map to Route",
+      "type": "boolean",
+      "default": true,
+      "enabled": { "mapMode": "tracking" }
+    },
+    {
+      "name": "animateUserMarker",
+      "displayName": "Animate User Marker Movement",
+      "type": "boolean",
+      "default": true,
+      "enabled": { "mapMode": "tracking" }
+    },
+
+    {
+      "name": "waypoints",
+      "displayName": "Waypoints",
+      "type": "list",
+      "enabled": { "mapMode": "routeBuilder" }
+    },
+    {
+      "name": "showSegmentDistances",
+      "displayName": "Show Distance per Segment",
+      "type": "boolean",
+      "default": true,
+      "enabled": { "mapMode": "routeBuilder" }
+    },
+    {
+      "name": "showTotalSummary",
+      "displayName": "Show Total Distance & Duration",
+      "type": "boolean",
+      "default": true,
+      "enabled": { "mapMode": "routeBuilder" }
+    },
+    {
+      "name": "optimizeWaypointOrder",
+      "displayName": "Optimize Waypoint Order",
+      "type": "boolean",
+      "default": false,
+      "enabled": { "mapMode": "routeBuilder" },
+      "helpText": "Let Google Maps reorder waypoints for the shortest route"
+    },
+
+    {
+      "name": "totalDistance",
+      "displayName": "Total Distance (km)",
+      "type": "number",
+      "default": 0,
+      "hidden": true,
+      "role": "autosaveInput"
+    },
+    {
+      "name": "totalDuration",
+      "displayName": "Total Duration (min)",
+      "type": "number",
+      "default": 0,
+      "hidden": true,
+      "role": "autosaveInput"
+    },
+
+    {
+      "name": "onRouteCalculated",
+      "displayName": "On Route Calculated",
+      "type": "action",
+      "arguments": [
+        { "type": "number", "displayName": "Distance (km)" },
+        { "type": "number", "displayName": "Duration (min)" }
+      ]
+    },
+    {
+      "name": "onMapTap",
+      "displayName": "On Map Tap",
+      "type": "action",
+      "arguments": [
+        { "type": "number", "displayName": "Latitude" },
+        { "type": "number", "displayName": "Longitude" }
+      ]
+    },
+    {
+      "name": "onWaypointTap",
+      "displayName": "On Waypoint Tap",
+      "type": "action",
+      "enabled": { "mapMode": "routeBuilder" },
+      "arguments": [
+        { "type": "text", "displayName": "Waypoint Label" },
+        { "type": "number", "displayName": "Latitude" },
+        { "type": "number", "displayName": "Longitude" }
+      ]
+    }
+  ],
+  "childComponents": [
+    {
+      "name": "waypointItem",
+      "displayName": "Waypoint",
+      "role": "listItem",
+      "reference": "waypoints",
+      "props": [
+        {
+          "name": "latitude",
+          "displayName": "Latitude",
+          "type": "number"
+        },
+        {
+          "name": "longitude",
+          "displayName": "Longitude",
+          "type": "number"
+        },
+        {
+          "name": "label",
+          "displayName": "Label",
+          "type": "text",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "name": "mapStyling",
+      "displayName": "Map Styling",
+      "props": [
+        {
+          "name": "routeColor",
+          "displayName": "Route Color",
+          "type": "color",
+          "default": "#4285F4",
+          "style": true
+        },
+        {
+          "name": "routeWeight",
+          "displayName": "Route Thickness",
+          "type": "number",
+          "default": 5,
+          "control": { "type": "slider", "min": 1, "max": 12 },
+          "style": true
+        },
+        {
+          "name": "userMarkerColor",
+          "displayName": "User Marker Color",
+          "type": "color",
+          "default": "#4285F4",
+          "style": true
+        },
+        {
+          "name": "destinationMarkerColor",
+          "displayName": "Destination Marker Color",
+          "type": "color",
+          "default": "#EA4335",
+          "style": true
+        },
+        {
+          "name": "waypointMarkerColor",
+          "displayName": "Waypoint Marker Color",
+          "type": "color",
+          "default": "#FBBC05",
+          "style": true
+        },
+        {
+          "name": "infoPanelBg",
+          "displayName": "Info Panel Background",
+          "type": "color",
+          "default": "#FFFFFF",
+          "style": true
+        },
+        {
+          "name": "infoPanelTextColor",
+          "displayName": "Info Panel Text Color",
+          "type": "color",
+          "default": "#333333",
+          "style": true
+        },
+        {
+          "name": "infoPanelFontSize",
+          "displayName": "Info Panel Font Size",
+          "type": "number",
+          "default": 14,
+          "control": { "type": "slider", "min": 10, "max": 24 },
+          "style": true
+        }
+      ]
     }
   ]
 }
