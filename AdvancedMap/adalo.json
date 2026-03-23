@@ -8,5 +8,8 @@
   ],
   "author": "Scalerize",
   "description": "Interactive Maps component with live tracking and multi-stop route building. Includes real-time geolocation, route paths, ETA, per-segment distances, and rich styling options.",
+  "price": 59,
+  "demoAppURL": "https://previewer.adalo.com/d51df6a9-57ae-41b7-ad5d-502e0035a7c2?target=2pixcu4vq3he9bfvwwyimjry9&params=%7B%7D",
+  "supportURL": "https://www.scalerize.fr/solutions/composants-adalo",
   "logo": "./logo.png"
 }
