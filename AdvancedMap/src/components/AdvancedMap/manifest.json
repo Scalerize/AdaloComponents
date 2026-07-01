@@ -28,6 +28,12 @@
       }
     },
     {
+      "name": "waypoints",
+      "displayName": "Waypoints",
+      "type": "list",
+      "enabled": { "mapMode": "routeBuilder" }
+    },
+    {
       "name": "initialLatitude",
       "displayName": "Initial Center Latitude",
       "type": "number",
@@ -203,13 +209,6 @@
       "type": "boolean",
       "default": true,
       "enabled": { "mapMode": "tracking" }
-    },
-
-    {
-      "name": "waypoints",
-      "displayName": "Waypoints",
-      "type": "list",
-      "enabled": { "mapMode": "routeBuilder" }
     },
     {
       "name": "showSegmentDistances",
